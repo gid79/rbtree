@@ -1,4 +1,8 @@
-require "./rbtree"
+begin
+  require "./rbtree"
+rescue LoadError
+  require "./jrbtree"
+end
 require "test/unit.rb"
 
 class RBTreeTest < Test::Unit::TestCase
