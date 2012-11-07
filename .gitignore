@@ -1,0 +1,5 @@
+doc
+*.o
+Makefile
+rbtree.bundle
+*.log
