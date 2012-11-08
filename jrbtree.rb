@@ -3,21 +3,22 @@ require 'java'
 
 java_import java.util.TreeMap
 
-class MultiRBTree
+class MultiRBTree 
   DEFAULT_CMP_PROC = Proc.new {|lhs,rhs| 
     cmp = lhs <=> rhs 
     raise ArgumentError.new("comparison of #{lhs} with #{rhs} failed") if cmp == nil
     cmp
-  }
+  }        
   include Enumerable
-  
+        
+  attr_accessor :default,:default_proc
   @@TreeMap = TreeMap.java_class.constructor(java::util::Comparator)
 
-  def initialize( default_value=nil, &block )
+  def initialize( def_value=nil, &block )
     # p block_given?
-    default = default_value
-    default_proc = block_given? ? Proc.new(&block) : nil
-
+    self.default = def_value
+    self.default_proc = block_given? ? Proc.new(&block) : nil
+    
     @cmp_proc = nil
     @dict = @@TreeMap.new_instance(DEFAULT_CMP_PROC).to_java
     @size = 0
@@ -69,18 +70,23 @@ class MultiRBTree
 
     self
   end
+
+  def default_value                                       
+    default_proc != nil ? default_proc.call() : default
+  end                                                  
   
-  def default 
-    default_proc != nil ? default_proc.call() : @default
-  end
-
-  def default=(default_value)
-    @default = default_value
-  end
-
-  def default_proc
-    @default_proc
-  end
+  # def default 
+  #   default_proc != nil ? default_proc.call() : @default
+  # end
+  # 
+  # def default=(default_value)
+  #   p "default=#{default_value}"
+  #   @default = default_value
+  # end
+  # 
+  # def default_proc
+  #   @default_proc
+  # end
 
   def each(&block) 
     self.each_entry(@dict, &block)
@@ -131,7 +137,7 @@ class MultiRBTree
     if container != nil
       container.first
     else
-      default
+      default_value
     end
   end
 
@@ -207,12 +213,12 @@ class MultiRBTree
                   
   def lower_bound(k)
     entry = @dict.ceilingEntry(k)
-    array_of_entry entry, k
+    array_of_entry entry, k, :first
   end     
   
   def upper_bound(k)
     entry = @dict.floorEntry(k)
-    array_of_entry entry, k
+    array_of_entry entry, k, :last
   end
   
   def bound( k1, k2 = k1, &block )
@@ -239,12 +245,12 @@ class MultiRBTree
                       
   def first        
     entry = @dict.firstEntry
-    entry != nil ? array_of_entry(entry) : default
+    entry != nil ? array_of_entry(entry) : default_value
   end
   
   def last
     entry = @dict.lastEntry
-    entry != nil ? array_of_entry(entry) : default
+    entry != nil ? array_of_entry(entry) : default_value
   end
 
   def index value
@@ -286,9 +292,9 @@ class MultiRBTree
   end                                                            
                
   def marshal_dump
-    raise TypeError.new("default_proc is set: unable to dump Proc's") unless @default_proc == nil
+    raise TypeError.new("default_proc is set: unable to dump Proc's") unless default_proc == nil
     raise TypeError.new("cmp_proc is set: unable to dump Proc's") unless @cmp_proc == nil
-    [to_a, @default]
+    [to_a, default]
   end                              
   
   def marshal_load data
@@ -330,7 +336,7 @@ class MultiRBTree
     @dict
   end
   
-  def array_of_entry entry, key=nil
+  def array_of_entry entry, key=nil, method=:first
     if entry == nil
       value = default
       # nested teneray... eek
@@ -343,7 +349,7 @@ class MultiRBTree
               [key, value] :
               value ))
     else
-      [entry.key, entry.value.first]
+      [entry.key, entry.value.send(method)]
     end
   end                         
   
@@ -452,17 +458,5 @@ end
 # a,b = e.next              
 # p a
 # p b
-r = RBTree[1,2,3,4,5,6]
-p r.inspect
-r.readjust
-p r.inspect 
 
-rbtree = RBTree.new
-key = ["a"]
-rbtree[key] = nil
-rbtree[["e"]] = nil
-key[0] = "f"
-
-p rbtree.keys
-rbtree.readjust
-p rbtree.keys
+# p RBTree.new("e").default
