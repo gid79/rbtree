@@ -141,18 +141,8 @@ class MultiRBTree
     end
   end
 
-  def delete key    
-    raise TypeError.new("currently iterating") if @iterating > 0  
-    container = @dict.get(key)
-    if container == nil
-      return yield key if block_given? else nil
-    end
-    container.delete_at(0)
-    @size -= 1
-    if container.empty?
-      @dict.remove(key)
-    end
-    self
+  def delete key, &block
+    remove key, :shift, &block
   end
                         
   def delete_if &block
@@ -250,9 +240,29 @@ class MultiRBTree
   
   def last
     entry = @dict.lastEntry
-    entry != nil ? array_of_entry(entry) : default_value
+    entry != nil ? array_of_entry(entry, :last) : default_value
   end
 
+  def shift
+    entry = @dict.firstEntry
+    if entry != nil
+      remove entry.key, :shift
+      array_of_entry entry
+    else
+      default_value
+    end
+  end  
+  
+  def pop
+    entry = @dict.lastEntry
+    if entry != nil
+      remove entry.key, :pop
+      array_of_entry entry
+    else
+      default_value
+    end
+  end 
+                
   def index value
     key, value = find {|k,v| v == value}
     key
@@ -378,6 +388,26 @@ class MultiRBTree
     end
     value
   end
+  
+  def remove key, operation = :shift, &block
+    raise TypeError.new("currently iterating") if @iterating > 0  
+    container = @dict.get(key)
+    if container == nil
+      if block_given? 
+        return yield key
+      else
+        return nil
+      end
+    end
+    @size -= 1
+    value = container.first
+    if container.length > 1
+      value = container.send(operation)
+    else
+      @dict.remove(key)
+    end
+    value
+  end
 end
 
 class RBTree < MultiRBTree
@@ -397,11 +427,6 @@ class RBTree < MultiRBTree
     r = RBTree.new
     args.each_slice(2) { |k,v| r[k] = v }
     r
-  end
-
-  def delete(key)
-    @dict.remove(key)
-    self
   end
 
   def size
