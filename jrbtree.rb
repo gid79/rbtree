@@ -20,7 +20,7 @@ class MultiRBTree
     self.default_proc = block_given? ? Proc.new(&block) : nil
     
     @cmp_proc = nil
-    @dict = @@TreeMap.new_instance(DEFAULT_CMP_PROC).to_java
+    @dict = create_tree_map DEFAULT_CMP_PROC
     @size = 0
     @iterating = 0
   end
@@ -60,7 +60,7 @@ class MultiRBTree
        end
 
     
-    new_map = @@TreeMap.new_instance(cmp_proc != nil ? cmp_proc : DEFAULT_CMP_PROC).to_java
+    new_map = create_tree_map(cmp_proc)
 
     # note can't use putAll as there is an internal optization that short cuts the resorting
     # if the two maps share a common comparator
@@ -267,6 +267,22 @@ class MultiRBTree
     key, value = find {|k,v| v == value}
     key
   end
+                   
+  def replace tree
+    raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
+    new_map = create_tree_map tree.cmp_proc
+    size = 0
+    tree.each do |k,v| 
+      put_into k,v,new_map
+      size += 1
+    end                                    
+    self.default = tree.default
+    self.default_proc = tree.default_proc
+    @dict = new_map                      
+    @cmp_proc = tree.cmp_proc
+    @size = size
+    self
+  end
   
   def clear
     @dict.clear
@@ -379,7 +395,7 @@ class MultiRBTree
     result
   end
   
-  def put_into( key, value, dict)
+  def put_into( key, value, dict )
     container = dict.get(key)
     if container == nil
       dict.put( key , [value] )
@@ -407,6 +423,10 @@ class MultiRBTree
       @dict.remove(key)
     end
     value
+  end                                 
+  
+  def create_tree_map cmp_proc
+    @@TreeMap.new_instance(cmp_proc != nil ? cmp_proc : DEFAULT_CMP_PROC).to_java
   end
 end
 
