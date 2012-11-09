@@ -3,3 +3,6 @@ doc
 Makefile
 rbtree.bundle
 *.log
+.idea
+*.iml
+*.iws
