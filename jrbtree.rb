@@ -284,6 +284,17 @@ class MultiRBTree
     self
   end
   
+  def update(tree)
+    raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
+    tree.each do |k,v|
+      self[k] = v
+    end
+    self
+  end
+  alias :merge :update
+  alias :merge! :update
+  alias :update! :update
+  
   def clear
     @dict.clear
     @size = 0
@@ -332,6 +343,7 @@ class MultiRBTree
   def ==( other )
     return true if self.equal?(other)
     return false unless other.is_a? MultiRBTree
+    return false unless other.cmp_proc == cmp_proc
     @dict.equals( other.dict )
   end
       
@@ -452,7 +464,19 @@ class RBTree < MultiRBTree
   def size
     @dict.size
   end
-        
+               
+  def update tree, &block
+    raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
+    tree.each do |k,v|
+      if key? k and block_given?
+        self[k] = yield(k, self[k], v)
+      else
+        self[k] = v
+      end
+    end
+    self
+  end
+  
   def to_hash
     result = Hash.new
     result.default= @default 
