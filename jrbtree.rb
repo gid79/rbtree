@@ -11,14 +11,15 @@ class MultiRBTree
   }        
   include Enumerable
         
-  attr_accessor :default,:default_proc
   @@TreeMap = TreeMap.java_class.constructor(java::util::Comparator)
 
   def initialize( def_value=nil, &block )
     # p block_given?
-    self.default = def_value
-    self.default_proc = block_given? ? Proc.new(&block) : nil
-    
+    self.default= def_value
+    if block_given?
+      self.default=Proc.new(&block)
+    end
+
     @cmp_proc = nil
     @dict = create_tree_map DEFAULT_CMP_PROC
     @size = 0
@@ -36,6 +37,30 @@ class MultiRBTree
     r = MultiRBTree.new
     args.each_slice(2) { |k,v| r[k] = v }
     r
+  end
+
+  def default(*args)
+    args_c = args.length
+    key = nil
+    if args_c == 1
+      key = args.first
+    elsif args_c > 1
+      raise ArgumentError.new("unexpected number of arguments")
+    end
+
+    df = @default
+    if is_callable?(df)
+      return args_c == 0 ? nil : df.call(self, key)
+    end
+    df
+  end
+
+  def default=(value)
+    @default=value
+  end
+
+  def default_proc
+    is_callable?(@default) ? @default : nil
   end
 
   def cmp_proc
@@ -71,24 +96,7 @@ class MultiRBTree
     self
   end
 
-  def default_value                                       
-    default_proc != nil ? default_proc.call() : default
-  end                                                  
-  
-  # def default 
-  #   default_proc != nil ? default_proc.call() : @default
-  # end
-  # 
-  # def default=(default_value)
-  #   p "default=#{default_value}"
-  #   @default = default_value
-  # end
-  # 
-  # def default_proc
-  #   @default_proc
-  # end
-
-  def each(&block) 
+  def each(&block)
     self.each_entry(@dict, &block)
   end
 
@@ -139,7 +147,7 @@ class MultiRBTree
     if container != nil
       container.first
     else
-      default_value
+      default key
     end
   end
 
@@ -229,12 +237,12 @@ class MultiRBTree
                       
   def first        
     entry = @dict.firstEntry
-    entry != nil ? array_of_entry(entry) : default_value
+    entry != nil ? array_of_entry(entry) : default(nil)
   end
   
   def last
     entry = @dict.lastEntry
-    entry != nil ? array_of_entry(entry, :last) : default_value
+    entry != nil ? array_of_entry(entry, :last) : default(nil)
   end
 
   def shift
@@ -243,7 +251,7 @@ class MultiRBTree
       remove entry.key, :shift
       array_of_entry entry
     else
-      default_value
+      default(nil)
     end
   end  
   
@@ -253,7 +261,7 @@ class MultiRBTree
       remove entry.key, :pop
       array_of_entry entry
     else
-      default_value
+      default(nil)
     end
   end 
                 
@@ -271,8 +279,7 @@ class MultiRBTree
       size += 1
     end                                    
     self.default = tree.default
-    self.default_proc = tree.default_proc
-    @dict = new_map                      
+    @dict = new_map
     @cmp_proc = tree.cmp_proc
     @size = size
     self
@@ -282,9 +289,6 @@ class MultiRBTree
     raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
     new_tree = self.clone
     new_tree.update!(tree)
-    tree.each do |k,v|
-      new_tree[k] = v
-    end
     new_tree
   end
 
@@ -425,8 +429,11 @@ class MultiRBTree
             
   def new_empty
     result = self.class.new
-    result.default=self.default  
-    # todo pass cmp_proc over to new invert copy
+    result.default= default_proc != nil ? default_proc : default
+    if cmp_proc
+      result.readjust cmp_proc
+    end
+    # todo pass cmp_proc over to new invert copy etc
     result
   end
   
@@ -464,7 +471,7 @@ class MultiRBTree
     @@TreeMap.new_instance(cmp_proc != nil ? cmp_proc : DEFAULT_CMP_PROC).to_java
   end
 
-  def prep_key key
+  def prep_key(key)
     key
     #begin
     #  key.frozen? ? key : key.clone.freeze
@@ -472,6 +479,13 @@ class MultiRBTree
     #  #p "TypeError"
     #  key
     #end
+  end
+
+  def is_callable?(value)
+    # coded as
+    #if (FL_TEST(self, RBTREE_PROC_DEFAULT))
+    # in rbtree.c
+    value != nil and value.respond_to? :call
   end
 end
 
@@ -525,40 +539,41 @@ class RBTree < MultiRBTree
     value
   end
 end
-# p "--------------"
-# p MultiRBTree[*%w(1 2 1 3 3 4 5 6)].inspect
-# MultiRBTree[*%w(1 2 1 3 3 4 5 6)].each_pair {| k,v | p "#{k} -> #{v}"}
-# p MultiRBTree[1,2,1,3,3,4,5,6].fetch(1)
-# p MultiRBTree[1,2,1,3,3,4,5,6].fetch(6,7)
-# p MultiRBTree[1,2,1,3,3,4,5,6].fetch(6) {|key| "wibble - #{6}" }
-# p "--------------"
-# p MultiRBTree.new("d")[1]
-# p MultiRBTree.new{25}[1]
-# p MultiRBTree.new()[1]
-# m = MultiRBTree[1,2,1,3,3,4,5,6]
-# m.delete_if {|k,v| v > 3}
-# p m
-# p "--------------"
-# RBTree[*%w(1 2 1 3 3 4 5 6)].each {| k,v | p "#{k} -> #{v}"}
-# RBTree[*%w(1 2 1 3 3 4 5 6)].reverse_each {| k,v | p "#{k} -> #{v}"}
-# 
-# 
-# p RBTree[1,2,1,3,3,4,5,6].fetch(1)
-# p RBTree[1,2,1,3,3,4,5,6].fetch(6,7)
-# p RBTree[1,2,1,3,3,4,5,6].fetch(6) {|key| "wibble - #{6}" }
-# 
-# p "--------------"
-# p RBTree.new("d")[1]
-# p RBTree.new{25}[1]
-# p RBTree.new()[1]           
-# 
-# p RBTree[1,2,1,3,3,4,5,6] == RBTree[1,2,1,3,3,4,5,6]
-# p RBTree[*%w(a A)] == MultiRBTree[*%w(a A)]        
-# 
-# e = RBTree[1,2,3,4].each
-# p e
-# a,b = e.next              
-# p a
-# p b
 
-# p RBTree.new("e").default
+if __FILE__ == $0
+  p "--------------"
+  p MultiRBTree[*%w(1 2 1 3 3 4 5 6)].inspect
+  MultiRBTree[*%w(1 2 1 3 3 4 5 6)].each_pair {| k,v | p "#{k} -> #{v}"}
+  p MultiRBTree[1,2,1,3,3,4,5,6].fetch(1)
+  p MultiRBTree[1,2,1,3,3,4,5,6].fetch(6,7)
+  p MultiRBTree[1,2,1,3,3,4,5,6].fetch(6) {|key| "wibble - #{6}" }
+  p "--------------"
+  p MultiRBTree.new("d")[1]
+  p MultiRBTree.new{25}[1]
+  p MultiRBTree.new()[1]
+  m = MultiRBTree[1,2,1,3,3,4,5,6]
+  m.delete_if {|k,v| v > 3}
+  p m
+  p "--------------"
+  RBTree[*%w(1 2 1 3 3 4 5 6)].each {| k,v | p "#{k} -> #{v}"}
+  RBTree[*%w(1 2 1 3 3 4 5 6)].reverse_each {| k,v | p "#{k} -> #{v}"}
+
+
+  p RBTree[1,2,1,3,3,4,5,6].fetch(1)
+  p RBTree[1,2,1,3,3,4,5,6].fetch(6,7)
+  p RBTree[1,2,1,3,3,4,5,6].fetch(6) {|key| "wibble - #{6}" }
+
+  p "--------------"
+  p RBTree.new("d")[1]
+  p RBTree.new{25}[1]
+  p RBTree.new()[1]
+
+  p RBTree[1,2,1,3,3,4,5,6] == RBTree[1,2,1,3,3,4,5,6]
+  p RBTree[*%w(a A)] == MultiRBTree[*%w(a A)]
+
+  e = RBTree[1,2,3,4].each
+  p e
+  a,b = e.next
+  p a
+  p b
+end
