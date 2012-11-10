@@ -132,6 +132,8 @@ class MultiRBTree
     @size += 1
   end
 
+  alias :store :[]=
+
   def [](key)
     container = @dict.get(key)
     if container != nil
@@ -147,17 +149,9 @@ class MultiRBTree
                         
   def delete_if &block
     raise ArgumentError.new("block expected") unless block_given?
-    iter = @dict.entrySet.iterator
-    
-    while( iter.hasNext )
-      entry = iter.next   
-      key = entry.key
-      deleted = entry.value.delete_if { |value| yield key,value }
-      @size -= deleted.length
-      if entry.value.empty?
-        iter.remove
-      end
-    end                   
+
+    find_all(&block).each {| k,v | delete k }
+
     self
   end   
   
@@ -286,15 +280,36 @@ class MultiRBTree
   
   def update(tree)
     raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
+    new_tree = self.clone
+    new_tree.update!(tree)
+    tree.each do |k,v|
+      new_tree[k] = v
+    end
+    new_tree
+  end
+
+  alias :merge :update
+
+  def update!(tree)
+    raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
     tree.each do |k,v|
       self[k] = v
     end
     self
   end
-  alias :merge :update
-  alias :merge! :update
-  alias :update! :update
-  
+
+  alias :merge! :update!
+
+  def reject &block
+    self.clone.reject! &block
+  end
+
+  def reject! &block
+    count = size
+    delete_if &block
+    count == size ? nil : self
+  end
+
   def clear
     @dict.clear
     @size = 0
@@ -323,7 +338,11 @@ class MultiRBTree
   def to_s
     self.to_a.to_s
   end
-  
+
+  def to_rbtree
+    self
+  end
+
   def to_hash
     raise TypeError.new("cannot convert a MultiRBTree to a Hash")
   end                                                            
@@ -348,7 +367,11 @@ class MultiRBTree
   end
       
   def inspect
-    "#<#{self.class.name}: {#{self.to_a.map{|p| p.map{|v| v.inspect}.join('=>')}.join(", ")}}, default=#{default.inspect}, cmp_proc=#{cmp_proc.inspect}>"
+    dict_str = self.to_a.map{
+        |p| p.map { |v| v != self ? v.inspect : "#<#{self.class.name}: ...>"}
+            .join('=>')
+    }.join(", ")
+    "#<#{self.class.name}: {#{dict_str}}, default=#{default.inspect}, cmp_proc=#{cmp_proc.inspect}>"
   end                    
         
   #----- Protected Methods --------
@@ -410,7 +433,7 @@ class MultiRBTree
   def put_into( key, value, dict )
     container = dict.get(key)
     if container == nil
-      dict.put( key , [value] )
+      dict.put( prep_key(key), [value] )
     else
       container << value
     end
@@ -439,6 +462,16 @@ class MultiRBTree
   
   def create_tree_map cmp_proc
     @@TreeMap.new_instance(cmp_proc != nil ? cmp_proc : DEFAULT_CMP_PROC).to_java
+  end
+
+  def prep_key key
+    key
+    #begin
+    #  key.frozen? ? key : key.clone.freeze
+    #rescue TypeError
+    #  #p "TypeError"
+    #  key
+    #end
   end
 end
 
@@ -486,9 +519,9 @@ class RBTree < MultiRBTree
     self.each{|k,v| result[k] = v}
     result
   end
-  
+
   def put_into( key, value, dict )
-    dict.put key, [value]
+    dict.put prep_key(key), [value]
     value
   end
 end
