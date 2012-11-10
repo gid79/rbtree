@@ -13,8 +13,9 @@ class MultiRBTree
         
   @@TreeMap = TreeMap.java_class.constructor(java::util::Comparator)
 
-  def initialize( def_value=nil, &block )
-    # p block_given?
+  def initialize(*args, &block )
+    raise ArgumentError if args.length > 1 or (args.length == 1 and block_given?)
+    def_value = args.length == 1 ? args.first : nil
     self.default= def_value
     if block_given?
       self.default=Proc.new(&block)
@@ -27,16 +28,48 @@ class MultiRBTree
   end
 
   def self.[](*args)
-    if( args.length == 1 )
-      raise Exception.new("not implemented yet")
+    result = self.new
+    if args.length == 1
+      input = args.first
+      if self == RBTree and input.class == MultiRBTree
+        raise TypeError.new("can't convert MultiRBTree to RBTree")
+      end
+      if input.is_a? MultiRBTree
+        result.update!(input)
+        return result
+      end
+
+      tmp = Hash.try_convert(input)
+      if tmp != nil
+        tmp.each { |k,v| result[k] = v }
+        return tmp
+      end
+
+      tmp = Array.try_convert(input)
+      if tmp != nil
+        tmp.each do |v|
+          v = Array.try_convert v
+          if v == nil
+            continue
+          end
+          case v.length
+            when 1
+              result[v[0]] = nil
+            when 2
+              result[v[0]] = v[1]
+            else
+              continue
+          end
+        end
+        return tmp
+      end
     end
 
     if args.length % 2 != 0
       raise ArgumentError.new("odd number of arguments for #{self.name}[]")
     end
-    r = MultiRBTree.new
-    args.each_slice(2) { |k,v| r[k] = v }
-    r
+    args.each_slice(2) { |k,v| result[k] = v }
+    result
   end
 
   def default(*args)
@@ -376,8 +409,8 @@ class MultiRBTree
             .join('=>')
     }.join(", ")
     "#<#{self.class.name}: {#{dict_str}}, default=#{default.inspect}, cmp_proc=#{cmp_proc.inspect}>"
-  end                    
-        
+  end
+
   #----- Protected Methods --------
   protected
   def each_entry( map, &block )  
@@ -408,11 +441,13 @@ class MultiRBTree
       # the C implementation returns the teh default value on it's own 
       # when there isn't a key (think first/last) other methods return 
       # a pair
-      (value == nil ? 
-          nil : 
-          ( key != nil ? 
-              [key, value] :
-              value ))
+      if value == nil then
+        nil
+      else
+        key != nil ?
+            [key, value] :
+            value
+      end
     else
       [entry.key, entry.value.send(method)]
     end
@@ -447,11 +482,11 @@ class MultiRBTree
     value
   end
   
-  def remove key, operation = :shift, &block
-    raise TypeError.new("currently iterating") if @iterating > 0  
+  def remove(key, operation = :shift, &block)
+    raise TypeError.new("currently iterating") if @iterating > 0
     container = @dict.get(key)
     if container == nil
-      if block_given? 
+      if block_given?
         return yield key
       else
         return nil
@@ -495,19 +530,6 @@ class RBTree < MultiRBTree
     super( *args, &block )
   end
 
-  def self.[](*args)
-    if( args.length == 1 )
-      raise Exception.new("not implemented yet")
-    end
-
-    if args.length % 2 != 0
-      raise ArgumentError.new("odd number of arguments for #{self.name}[]")
-    end
-    r = RBTree.new
-    args.each_slice(2) { |k,v| r[k] = v }
-    r
-  end
-
   def size
     @dict.size
   end
@@ -523,7 +545,7 @@ class RBTree < MultiRBTree
     end
     self
   end
-  
+
   def to_hash
     result = Hash.new
     result.default= @default 
@@ -541,6 +563,10 @@ class RBTree < MultiRBTree
 end
 
 if __FILE__ == $0
+  a = [%w(a A), %w(b B), %w(c C), %w(d D)]
+  t = RBTree[[%w(a A), %w(b B), %w(c C), %w(d D)]]
+  p t["a"]
+  p t["b"]
   p "--------------"
   p MultiRBTree[*%w(1 2 1 3 3 4 5 6)].inspect
   MultiRBTree[*%w(1 2 1 3 3 4 5 6)].each_pair {| k,v | p "#{k} -> #{v}"}
