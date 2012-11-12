@@ -8,7 +8,7 @@ require 'benchmark'
 
 k = 10000
 ks = 8
-n = 100
+n = 10
 keys = (0..k).map { (0..8).map{ ('a'..'z').to_a[rand(26)] }.join }
 
 Benchmark.bmbm do |x|

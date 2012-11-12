@@ -5,7 +5,7 @@ java_import java.util.TreeMap
 
 class MultiRBTree 
   DEFAULT_CMP_PROC = Proc.new {|lhs,rhs| 
-    cmp = lhs <=> rhs 
+    cmp = lhs <=> rhs
     raise ArgumentError.new("comparison of #{lhs} with #{rhs} failed") if cmp == nil
     cmp
   }        
@@ -474,7 +474,7 @@ class MultiRBTree
     return true if self.equal?(other)
     return false unless other.is_a? MultiRBTree
     return false unless other.cmp_proc == cmp_proc
-    @dict.equals( other.dict )
+    to_a == other.to_a
   end
       
   def inspect
@@ -485,8 +485,8 @@ class MultiRBTree
     "#<#{self.class.name}: {#{dict_str}}, default=#{default.inspect}, cmp_proc=#{cmp_proc.inspect}>"
   end
 
-  #----- Protected Methods --------
-  protected
+  #----- Internal Methods --------
+  private
   def each_entry( map, &block )  
     if block_given?
       @iterating += 1
@@ -510,9 +510,8 @@ class MultiRBTree
   
   def array_of_entry entry, key=nil, method=:first
     if entry == nil
-      value = default
-      # nested teneray... eek
-      # the C implementation returns the teh default value on it's own 
+      value = default(key)
+      # the C implementation returns the teh default value on it's own
       # when there isn't a key (think first/last) other methods return 
       # a pair
       if value == nil then
@@ -549,7 +548,7 @@ class MultiRBTree
   def put_into( key, value, dict )
     container = dict.get(key)
     if container == nil
-      dict.put( prep_key(key), [value] )
+      dict.put( key, [value] )
     else
       container << value
     end
@@ -580,16 +579,6 @@ class MultiRBTree
     @@TreeMap.new_instance(cmp_proc != nil ? cmp_proc : DEFAULT_CMP_PROC).to_java
   end
 
-  def prep_key(key)
-    key
-    #begin
-    #  key.frozen? ? key : key.clone.freeze
-    #rescue TypeError
-    #  #p "TypeError"
-    #  key
-    #end
-  end
-
   def is_callable?(value)
     # coded as
     #if (FL_TEST(self, RBTREE_PROC_DEFAULT))
@@ -607,7 +596,30 @@ class RBTree < MultiRBTree
   def size
     @dict.size
   end
-               
+
+  def [](key)
+    value = @dict.get(key)
+    if value == nil
+      # have to use containsKey as the map can contain nil as a valid value
+      @dict.containsKey(key) ? value : default(key)
+    else
+      value
+    end
+  end
+
+  def remove(key, operation = :shift, &block)
+    raise TypeError.new("currently iterating") if @iterating > 0
+    unless @dict.containsKey(key)
+      if block_given?
+        return yield key
+      else
+        return nil
+      end
+    end
+
+    @dict.remove(key)
+  end
+
   def update tree, &block
     raise TypeError.new("wrong argument type #{tree.class} expecting #{self.class}") unless tree.is_a? self.class
     tree.each do |k,v|
@@ -630,8 +642,43 @@ class RBTree < MultiRBTree
     result
   end
 
+
+  private
+  def each_entry( map, &block )
+    if block_given?
+      @iterating += 1
+      begin
+        map.each do |key, value|
+          yield [key, value]
+        end
+      ensure
+        @iterating -= 1
+      end
+    else
+      Enumerator.new(self, :each_entry, map)
+    end
+  end
+
+  def array_of_entry entry, key=nil, method=:ignored
+    if entry == nil
+      value = default(key)
+      # the C implementation returns the teh default value on it's own
+      # when there isn't a key (think first/last) other methods return
+      # a pair
+      if value == nil then
+        nil
+      else
+        key != nil ?
+            [key, value] :
+            value
+      end
+    else
+      [entry.key, entry.value]
+    end
+  end
+
   def put_into( key, value, dict )
-    dict.put prep_key(key), [value]
+    dict.put( key, value )
     value
   end
 end
