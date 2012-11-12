@@ -1,5 +1,21 @@
 =begin
 
+= JRuby/Ruby
+
+This repo is a fork of the original skade/rbtree repo and provides
+a jruby implementation of MultiRBTree and RBTree.
+
+
+  begin
+    require "rbtree"
+  rescue LoadError
+    require "jrbtree"
+  end
+
+= Known issues with the JRuby implementation
+
+ * jrbtree.rb doesn't implement pretty print support
+
 = Ruby/RBTree
 
 RBTree is a sorted associative collection that is implemented with
@@ -56,6 +72,7 @@ duplications of keys but MultiRBTree does.
 == Requirement
 
   * Ruby 1.8.x
+  * JRuby 1.7.x
 
 == Install
 
@@ -76,6 +93,7 @@ and then
 == Test
 
   $ ruby test.rb
+  $ jruby test.rb
 
 == Incomplete Documents
 

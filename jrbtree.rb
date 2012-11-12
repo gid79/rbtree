@@ -96,10 +96,27 @@ class MultiRBTree
     is_callable?(@default) ? @default : nil
   end
 
+  # call-seq:
+  #   rbtree.cmp_proc => proc
+  #
+  # Returns the comparison block that is given by MultiRBTree#readjust.
   def cmp_proc
     @cmp_proc
   end
-                        
+
+  # call-seq:
+  #   rbtree.readjust                      => rbtree
+  #   rbtree.readjust(nil)                 => rbtree
+  #   rbtree.readjust(proc)                => rbtree
+  #   rbtree.readjust {|key1, key2| block} => rbtree
+  #
+  # Sets a proc to compare keys and readjusts elements using the given
+  # block or a Proc object given as the argument. The block takes two
+  # arguments of a key and returns negative, 0, or positive depending
+  # on the first argument is less than, equal to, or greater than the
+  # second one. If no block is given it just readjusts elements using
+  # current comparison block. If nil is given as the argument it sets
+  # default comparison block.
   def readjust(*args, &block)                             
     cmp_proc = if args.length == 1                                  
          proc = args.first
@@ -129,16 +146,31 @@ class MultiRBTree
     self
   end
 
+  # call-seq:
+  #   rbtree.each {|key, value| block} => rbtree
+  #
+  # Calls block once for each key in order, passing the key and value
+  # as a two-element array parameters.
   def each(&block)
     self.each_entry(@dict, &block)
   end
 
   alias :each_pair :each
 
+  # call-seq:
+  #  rbtree.reverse_each {|key, value| block} => rbtree
+  #
+  # Calls block once for each key in reverse order, passing the key and
+  # value as parameters.
   def reverse_each(&block)
     self.each_entry(@dict.descendingMap, &block)
   end
 
+  # call-seq:
+  #  rbtree.each_key {|key| block} => rbtree
+  #
+  # Calls block once for each key in order, passing the key as
+  # parameters.
   def each_key( &block )
     self.each_entry(@dict) do |key,value|
       yield key
@@ -150,7 +182,12 @@ class MultiRBTree
     each_key { |key| r << key }
     r
   end
-  
+
+  # call-seq:
+  #  rbtree.each_value {|value| block} => rbtree
+  #
+  # Calls block once for each key in order, passing the value as
+  # parameters.
   def each_value( &block )
     self.each_entry(@dict) do |key,value|
       yield value
@@ -235,17 +272,36 @@ class MultiRBTree
   end
 
   alias :value? :has_value?
-                  
+
+  # call-seq:
+  #   rbtree.lower_bound(key) => array
+  #
+  # Returns key-value pair corresponding to the lowest key that is
+  # equal to or greater than the given key(inside of lower
+  # boundary). If there is no such key, returns nil.
   def lower_bound(k)
     entry = @dict.ceilingEntry(k)
     array_of_entry entry, k, :first
   end     
-  
+
+  # call-seq:
+  #   rbtree.upper_bound(key) => array
+  #
+  # Returns key-value pair corresponding to the greatest key that is
+  # equal to or lower than the given key(inside of upper boundary). If
+  # there is no such key, returns nil.
   def upper_bound(k)
     entry = @dict.floorEntry(k)
     array_of_entry entry, k, :last
   end
-  
+
+  # call-seq:
+  #   rbtree.bound(key1, key2 = key1)                      => array
+  #   rbtree.bound(key1, key2 = key1) {|key, value| block} => rbtree
+  #
+  # Returns an array containing key-value pairs between the result of
+  # MultiRBTree#lower_bound and MultiRBTree#upper_bound. If a block is
+  # given it calls the block once for each pair.
   def bound( k1, k2 = k1, &block )
     return [] if compare(k1,k2) > 0
     selection = @dict.subMap(k1, true, k2, true)
@@ -267,17 +323,30 @@ class MultiRBTree
   def empty?
     size == 0
   end
-                      
+
+  # call-seq:
+  #   rbtree.first => array or object
+  #
+  # Returns the first(that is, the smallest) key-value pair.
   def first        
     entry = @dict.firstEntry
     entry != nil ? array_of_entry(entry) : default(nil)
   end
-  
+
+  # call-seq:
+  #   rbtree.last => array of object
+  #
+  # Returns the last(that is, the biggest) key-value pair.
   def last
     entry = @dict.lastEntry
     entry != nil ? array_of_entry(entry, :last) : default(nil)
   end
 
+  # call-seq:
+  #   rbtree.shift => array or object
+  #
+  # Removes the first(that is, the smallest) key-value pair and returns
+  # it as a two-item array.
   def shift
     entry = @dict.firstEntry
     if entry != nil
@@ -287,7 +356,12 @@ class MultiRBTree
       default(nil)
     end
   end  
-  
+
+  # call-seq:
+  #   rbtree.pop => array or object
+  #
+  # Removes the last(that is, the biggest) key-value pair and returns
+  # it as a two-item array.
   def pop
     entry = @dict.lastEntry
     if entry != nil
