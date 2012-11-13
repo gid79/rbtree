@@ -1,14 +1,22 @@
 
 require 'java'
-
 java_import java.util.TreeMap
 
-class MultiRBTree 
-  DEFAULT_CMP_PROC = Proc.new {|lhs,rhs| 
+#
+class RBTreeDefaultCompare
+  java_implements java.util.Comparator
+
+  java_signature 'int compare(java.lang.Object,java.lang.Object)'
+  def compare(lhs, rhs)
     cmp = lhs <=> rhs
-    raise ArgumentError.new("comparison of #{lhs} with #{rhs} failed") if cmp == nil
+    if cmp == nil then raise ArgumentError.new("comparison of #{lhs} with #{rhs} failed") end
     cmp
-  }        
+  end
+end
+
+class MultiRBTree
+
+  DEFAULT_CMP_PROC = RBTreeDefaultCompare.new
   include Enumerable
         
   @@TreeMap = TreeMap.java_class.constructor(java::util::Comparator)
@@ -486,7 +494,7 @@ class MultiRBTree
   end
 
   #----- Internal Methods --------
-  private
+  protected
   def each_entry( map, &block )  
     if block_given?
       @iterating += 1
@@ -531,7 +539,7 @@ class MultiRBTree
     if cp != nil 
       cp.call(k1,k2)
     else
-      DEFAULT_CMP_PROC.call(k1,k2)
+      DEFAULT_CMP_PROC.compare(k1,k2)
     end
   end        
             
@@ -643,7 +651,7 @@ class RBTree < MultiRBTree
   end
 
 
-  private
+  protected
   def each_entry( map, &block )
     if block_given?
       @iterating += 1

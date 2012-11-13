@@ -9,7 +9,9 @@ require 'benchmark'
 k = 10000
 ks = 8
 n = 10
-keys = (0..k).map { (0..8).map{ ('a'..'z').to_a[rand(26)] }.join }
+letters = ('a'..'z').to_a
+digits = (0..ks)
+keys = (0..k).map { digits.map{ letters[rand(letters.length)] }.join }
 
 Benchmark.bmbm do |x|
   x.report("set #{k} keys #{n} times") do
@@ -28,6 +30,14 @@ Benchmark.bmbm do |x|
   x.report("set/remove #{k} keys #{n} times") do
     n.times do
       m = RBTree.new
+      keys.each { |v| m[v] = v }
+      keys.each { |v| m.delete v }
+    end
+  end
+  x.report("set/remove readjust compare") do
+    n.times do
+      m = RBTree.new
+      m.readjust {|lhs,rhs| lhs <=> rhs }
       keys.each { |v| m[v] = v }
       keys.each { |v| m.delete v }
     end
